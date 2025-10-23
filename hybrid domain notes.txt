@@ -1,0 +1,217 @@
+Notes from An Introduction to the Planning Domain Definition Language,
+Chapter 6: Planning With Hybrid Systems (pg 123 - 137)
+
+- processes can be seen as flows
+- the executive agents perform actions that initiate or terminate processes
+- continuous processes
+
+    - continuous change within a durative action can be modelled
+
+    - durative actions from temporal planning:
+        - define as durative action
+        - define parameters
+        - define a duration
+            - does not have to be fixed
+        - define conditions (at start, over all, at end)
+        - define effects
+            - can use increase and decreate to change things over time
+
+    - PDDL+ allows a separation between discrete and continuous actions
+    - e.g. if you wanted to model dropping a ball, then having the ball falling, then the
+        ball hitting the ground (then that's discrete, continuous, discrete)
+
+        - PDDL+ uses continuous processes to make this separation possible!
+
+    - a process in PDDL+ becomes active as soon as the preconditions become true, and remains
+        active as long as the preconditions are not violated
+
+        - a process is triggered as a consequence of actions in the plan
+
+    - multiple processes can be active at the same time
+
+    - discrete action e.g. of releasing a ball:
+
+        (:action release
+            :parameters (?b - ball)
+            :precondition (and (holding ?b) (= (velocity ?b) 0))
+            :effect (and (not (holding ?b)))
+        )
+
+        - this will trigger the ball falling process
+
+    - continuous process of ball falling:
+
+        (:process fall
+            :parameters (?b - ball)
+            :precondition (and (not (holding ?b))(> (height ?b) 0))
+            :effect (and (increase (velocity ?b) (* #t (gravity)))
+                            (decrease (height ?b) (* #t (velocity ?b))))
+        )
+
+    - then there could be another action that dictates the ball being caught before it hits the
+    ground as well as one for if it hits the floor -- the continuous process allows this to 
+    be possible
+    - the termination of the process is no longer linked to the action that triggered it,
+    but only to the process preconditions
+
+
+- exogenous events
+
+    - events in PDDL+ are used to model changes in the environment, and in this sense they
+    are considered "the equivalent of actions for the world"
+
+    - triggered as soon as their preconditions become true
+    - effects are instantaneous
+    - as with processes, events are not directly applies by the planner, and they do not
+    appear explicitly in the plan
+    - for example, you could use an event to model the ball bouncing as a result of it 
+    hitting the floor
+
+- plan validation
+
+    - like in temporal planning, a plan for a hybrid plannin gproblem is a set of time-stamped
+    action occurrences, which induces a series of happenings
+
+    - the presence of exogenous events and processes in PDDL+, however, meaning that 
+    additional happenings, where events fire or processes start or stop, may appear
+    in the execution of the plan
+    - in between happenings, the state evolves continuously according to the set of active
+    processes and the continous efects of on-going actions
+    - validation of plans for PDDL+ domains is undecideable in general
+
+- modelling assumptions in PDDL+
+    - no moving targets and epsilon separation:
+        - the no moving target rule states that no 2 actions are allowed to
+        simultaneously make use of a value if one of the two is accessing the value to update
+        it
+        - as a consequence of this restriction, plans must respect the epsilon-separation
+        requirement, i.e., interfering actions must be separated by at least a time interval
+        of length epsilon
+
+    - events:
+        - the PDDL+ events are particularly challenging as they could trigger an infinite
+        cascading sequence of events
+        - to address this issue, the following assumptions are made in PDDL+:
+
+        - 1. each event must delete one of its own preconditions and thus avoid self-triggering
+        - 2. planning instances must be event-deterministic: in every state in which two events
+        e1 and e2 are applicable, the transition sequencces e1 followed by e2 and e2 followed
+        by e1 are both valid and reach the same resulting state.
+
+
+
+Use processes for continuous change where conditions are met over time, like gravity affecting a ball. 
+
+Use durative actions to represent activities that have a fixed duration, a start, and an end, where the 
+agent controls the start and stop, but the internal details of the duration are less important than the overall time. 
+
+Processes
+
+    - runs for as long as its preconditions are met
+
+    - When to use:
+    When modeling continuous, ongoing phenomena driven by physics or the environment, 
+    where the effects happen as long as the preconditions are met.
+
+    - Example:
+    A process for fuel-consumption that continuously decreases a vehicle's fuel level while moving, 
+    as long as its condition is true. Another is gravity increasing a ball's velocity until it hits the ground.
+
+    - Key characteristic:
+    An "always on" state; it starts and runs automatically as long as its preconditions hold. 
+
+Durative actions
+
+    - specified start and end time (a duration)
+
+    - When to use:
+    When the agent initiates a task that takes a specific amount of time, even if there are 
+    internal changes during that time. It's a more abstract representation of a process where the agent 
+    controls the start and end points. 
+
+    - Example:
+    A boil-water action that has a fixed start and end point. It might have an effect that increases the
+    water-temperature over time, but the action itself is triggered and finished by the agent. 
+    
+   - Key characteristic:
+    A discrete action with a defined duration that can have effects at its start, end, 
+    and/or over its duration. It is what an agent directly "does". 
+
+
+Notes on the domain:
+
+DRAFT WILL FOCUS ON COLLISION AVOIDANCE WHEN DOCKING A SPACECRAFT
+
+Events:
+- (:event collision)
+    - notifies system that the collision avoidance system is not working/a collision is imminent
+    - should detect if the trajectories of the craft and the arm are bound to collide
+
+- (:event spacecraft_detected)
+    - when a spacecraft enters the range of the sensor/camera, then this event should be triggered
+    - velocity matching should start, etc.
+
+- MAYBE (:event spacecraft_aligned)
+    - could possibly just be a predicate, but could also be good to have this event to trigger the end of the
+    velocity matching process? you'll have to see when you're actually building the model what is cleanest.
+    i think you could get away with either but having an event could be more straightforward....
+
+- (:event at_dock)
+    - event for when the craft and the arm have reached the docking port and the ship is ready to be berthed
+
+Processes:
+- (:process move)
+    - general movement process to a certain location that ends when the arm is a small distance away from the obj
+    - extend arm to craft after they are aligned
+    - should be a process bc the distance may not be the same every time -- not sure how long the duration of 
+    movement will be for every case
+
+- (:process match_velocity)
+    - before a catch can occur, the velocities of the ship and the arm/station must be the same.
+    - should trigger alignment being complete
+
+- (:process collision_detection)
+    - the spacecraft should ideally be moving very slowly and then help match velocity with the arm. we will assume
+    for this model that the arm does all the work in matching velocity with the craft. however, if the craft is
+    coming in too fast, then it may not be possible for the arm to move out of the way in time/be able to dock the
+    ship. this is where the safety plan comes in.
+    - this should detect if the velocity of the incoming craft is too high for the arm to possible avoid hitting it.
+    - if that's the case, then trigger the collision event
+
+- (:process collision_avoidance)
+    - not sure if I need this -- the match_velocity process + the collision_detection process might be enough?
+    - 
+
+- (:process move_to_dock)
+    - move the arm and the craft to the dock once it has been grasped
+
+Durative Actions:
+- SEE PROCESS W SAME NAME (:durative-action move_to_dock)
+    - once the ship has been grabbed, move it to the docking area (should take a set amount of time?
+    this may need to be a process...)
+    - also consider that there may be multiple ports on which to dock the craft -- consider making dock a type
+    and specifying which are empty and which are not -- the arm may have to choose which dock to berth the ship at
+    - ok actually may need to be a process because the arm could go right to a dock after it's been grabbed.
+    so could be anywhere in space........ process it is
+
+Discrete Actions:
+- (:action track_craft)
+    - begin tracking a craft that is within range
+    - should trigger veocity matching process
+
+- (:action begin_moving)
+    - should trigger the beginning of grasping the craft once the velocities match
+    - actual movement should be a process since dist may be variable
+
+- (:action grasp)
+    - grasp the craft
+
+- (:action dock_craft)
+    - once at the port, dock the craft (release the ship)
+
+
+
+
+
+
+
