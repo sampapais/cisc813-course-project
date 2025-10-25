@@ -197,7 +197,7 @@ Durative Actions:
 Discrete Actions:
 - (:action track_craft)
     - begin tracking a craft that is within range
-    - should trigger veocity matching process
+    - should trigger velocity matching process
 
 - (:action begin_moving)
     - should trigger the beginning of grasping the craft once the velocities match
