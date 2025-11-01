@@ -28,6 +28,7 @@
       (port-free ?port - port) ; indicates if a given port is free -- maybe change to more general location free predicate?
       (tracking ?c - craft) ; indicates which craft we are currently tracking
       (safety-mode) ; safety mode indicates we should be trying to recover from a failure 
+
       )
 
       (:functions
@@ -91,6 +92,16 @@
       (velocity-matched ?c))
    )
 
+   (:event reached_craft
+   :parameters (?c - craft)
+   :precondition (and
+      (<= (obj-distance ?c) 0.1)
+      (not (at ?p)))
+   :effect ( ; at the port
+      (at ?p)
+      (not (catching ?c)))
+   )
+
    (:event arrived_at_port
    :parameters (?p - port)
    :precondition (and
@@ -138,7 +149,8 @@
       (tracking ?c)
       (velocity-matched ?c) ; as we're moving, the velocity won't be matched..... not sure if i need this though
       (not (safety-mode))
-      (>= (obj-distance ?c) 0.1)) ; stop when 0.1 away -- should set a function for this so it's adjustable
+      (>= (obj-distance ?c) 0.1) ; stop when 0.1 away -- should set a function for this so it's adjustable
+      (catching ?c))
    :effect (and
       (decrease (x-arm) (* #t (arm-speed)(/ (- (x-arm)(x-obj ?c)) (obj-distance ?c)))) ; reach towards the craft
       (decrease (y-arm) (* #t (arm-speed)(/ (- (y-arm)(y-obj ?c)) (obj-distance ?c)))))
@@ -185,6 +197,18 @@
       (not (tracking ?c))) ; if craft is detected, start tracking it -- assuming for now there's only one craft at a time
    :effect (and
       (tracking ?c))
+   )
+
+   (:action catch_craft
+    :parameters (?c - craft)
+    :precondition (and
+      (tracking ?c)
+      (velocity-matched ?c) ; as we're moving, the velocity won't be matched..... not sure if i need this though
+      (not (safety-mode))
+      (>= (obj-distance ?c) 0.1) ; stop when 0.1 away -- should set a function for this so it's adjustable
+    )  
+    :effect ( ;trigger process
+      catching ?c)  
    )
 
    (:action grasp ; to grasp a particular object
