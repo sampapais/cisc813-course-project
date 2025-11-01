@@ -1,3 +1,8 @@
+Random notes on PDDL+ planning and the domain of the Canadarm3 domain I'm dealing with. For my own reference. 
+Was used as preliminary brainstorming, understanding, and construction of the domain. Not concrete by any means
+(many things have already changed from the domain outlined here).
+
+
 Notes from An Introduction to the Planning Domain Definition Language,
 Chapter 6: Planning With Hybrid Systems (pg 123 - 137)
 
