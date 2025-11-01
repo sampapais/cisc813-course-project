@@ -1,0 +1,13 @@
+# Canadarm3
+
+## Overview
+
+This domain models some of the functionality and the safety protocols of the Canadarm3, Canada's contribution to NASA's Lunar Gateway. 
+Since the robotic arm will function autonomously for the most part, there is a necessity to ensure that its safety protocols are robust.
+
+The motivation behind this model is to ensure that there are no logical gaps in the safety protocols outlined for the Canadarm3.
+This model uses PDDL+ to model its hybrid domain. The way this model falsifies the off-nominal behaviours is by feeding problem files
+that are intended to produce failure states and seeing if the planner is able to produce a plan to achieve this failure state. 
+
+This model currently captures:
+- 
