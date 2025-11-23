@@ -33,7 +33,7 @@
 
       (:functions
       (relative-velocity ?c - craft); relative velocity to the craft, in meters/sec
-      ;(obj-distance ?obj - object); distance from the craft/obj, in meters
+      (obj-distance ?obj - object); distance from the craft/obj, in meters
       (collision-distance) ; min distance the craft can be before a collision is a detected
       (sensor-range) ; how far the sensor can see
       (arm-speed) ; how fast the arm should be moving
@@ -53,7 +53,7 @@
    :precondition (and
       (tracking ?c) 
       (not (velocity-matched ?c))
-      (<= {calculate-distance}(collision-distance))
+      (<= (obj-distance ?c)(collision-distance))
       (not (collision-imminent ?c)))
    :effect (and
       (collision-imminent ?c)
@@ -65,7 +65,7 @@
    :precondition (and
       (safety-mode)
       (collision-imminent ?c)
-      (> {calculate-distance} (collision-distance)))
+      (> (obj-distance ?c) (collision-distance)))
    :effect (and
       (not (collision-imminent ?c))
       (not (safety-mode)))
@@ -76,7 +76,7 @@
    :parameters (?obj - object)
    :precondition (and ; within range of sensor, not detected previously
       (not (detected ?obj))
-      (<= {calculate-distance}(sensor-range)))
+      (<= (obj-distance ?obj)(sensor-range)))
    :effect (and ; now detected
       (detected ?obj))
    )
@@ -95,7 +95,7 @@
    (:event reached_craft
    :parameters (?c - craft)
    :precondition (and
-      (<= {calculate-distance} 0.1)
+      (<= (obj-distance ?c) 0.1)
       (not (at ?p)))
    :effect ( ; at the port
       (at ?p)
@@ -105,7 +105,7 @@
    (:event arrived_at_port
    :parameters (?p - port)
    :precondition (and
-      (<= {calculate-distance} 0.1)
+      (<= (obj-distance ?p) 0.1)
       (not (at ?p)))
    :effect ( ; at the port
       (at ?p))
@@ -113,6 +113,18 @@
 
 
    ; processes
+
+   ;probably need a process to continuously update the distance of the arm to other objects?
+   ;unless i just dont want to deal w this and compute if the x, y coords are close enough when checking
+   ;i dont think i can use sqrt functions anyways?
+   ;nvm we can roll with this just use ^0.5
+   (:process update-distance 
+   :parameters (?obj - object)
+   :precondition (>= (obj-distance ?obj) 0.0)
+   :effect (assign (obj-distance ?obj) 
+                  (^ (+ (^ (- (x-obj ?o)(x-arm)) 2)(^ (- (y-obj ?o) (y-arm)) 2)) 0.5){calculate-distance}) ; get dist btw. 2 points
+                  ;i think this needs to change with time for it to be a process. hm. 
+   )
 
    ;supposed to represent the station moving closer. might have to remove. irl this wouldn't be how it goes i think.
    ;the craft would have to be responsible for matching velocity with the station and the arm by extension. 
@@ -124,10 +136,10 @@
       (tracking ?c)
       (not (velocity-matched ?c)) ; as we're moving, the velocity won't be matched..... not sure if i need this though
       (not (safety-mode))
-      (>= {calculate-distance} 10.0)) ; stop when 10m away -- should set a function for this so it's adjustable
+      (>= (obj-distance ?c) 10.0)) ; stop when 10m away -- should set a function for this so it's adjustable
    :effect (and
-      (decrease (x-arm) (* #t (arm-speed)(/ (- (x-arm)(x-obj ?c)){calculate-distance}))) ; move in dir of the craft
-      (decrease (y-arm) (* #t (arm-speed)(/ (- (y-arm)(y-obj ?c)){calculate-distance}))))
+      (decrease (x-arm) (* #t (arm-speed)(/ (- (x-arm)(x-obj ?c))(obj-distance ?c)))) ; move in dir of the craft
+      (decrease (y-arm) (* #t (arm-speed)(/ (- (y-arm)(y-obj ?c))(obj-distance ?c)))))
    )
 
    ;actually extends the arm towards the craft
@@ -137,11 +149,11 @@
       (tracking ?c)
       (velocity-matched ?c) ; as we're moving, the velocity won't be matched..... not sure if i need this though
       (not (safety-mode))
-      (>= {calculate-distance} 0.1) ; stop when 0.1 away -- should set a function for this so it's adjustable
+      (>= (obj-distance ?c) 0.1) ; stop when 0.1 away -- should set a function for this so it's adjustable
       (catching ?c))
    :effect (and
-      (decrease (x-arm) (* #t (arm-speed)(/ (- (x-arm)(x-obj ?c)) {calculate-distance}))) ; reach towards the craft
-      (decrease (y-arm) (* #t (arm-speed)(/ (- (y-arm)(y-obj ?c)) {calculate-distance}))))
+      (decrease (x-arm) (* #t (arm-speed)(/ (- (x-arm)(x-obj ?c)) (obj-distance ?c)))) ; reach towards the craft
+      (decrease (y-arm) (* #t (arm-speed)(/ (- (y-arm)(y-obj ?c)) (obj-distance ?c)))))
    )
 
    ;need to come back to this
@@ -150,7 +162,7 @@
    :precondition (and
       (tracking ?c)
       (not (velocity-matched ?c))
-      (<= {calculate-distance} 10.0)
+      (<= (obj-distance ?c) 10.0)
       (not (safety-mode))) ; match velocity when close enough
    :effect (and
       (decrease (relative-velocity ?c) (* #t 0.1))) ; make the relative velocity approach 0
@@ -162,8 +174,8 @@
       (safety-mode)
       (collision-imminent ?c))
    :effect (and
-      (increase (x-arm) (* #t (arm-speed)(/ (- (x-arm)(x-obj ?c)) {calculate-distance}))) ; makes the arm back away from the object it may collide with
-      (increase (y-arm) (* #t (arm-speed)(/ (- (y-arm)(y-obj ?c)) {calculate-distance}))))
+      (increase (x-arm) (* #t (arm-speed)(/ (- (x-arm)(x-obj ?c)) (obj-distance ?c)))) ; makes the arm back away from the object it may collide with
+      (increase (y-arm) (* #t (arm-speed)(/ (- (y-arm)(y-obj ?c)) (obj-distance ?c)))))
    ) 
 
    (:process move_to_dock
@@ -173,8 +185,8 @@
       (not (at ?p))
       (not (safety-mode)))
    :effect (and
-      (decrease (x-arm) (* #t (arm-speed)(/ (- (x-arm)(x-obj ?p)) {calculate-distance})))
-      (decrease (y-arm) (* #t (arm-speed)(/ (- (y-arm)(y-obj ?p)) {calculate-distance}))))
+      (decrease (x-arm) (* #t (arm-speed)(/ (- (x-arm)(x-obj ?p)) (obj-distance ?p))))
+      (decrease (y-arm) (* #t (arm-speed)(/ (- (y-arm)(y-obj ?p)) (obj-distance ?p)))))
    )
 
    ; discrete actions
@@ -193,7 +205,7 @@
       (tracking ?c)
       (velocity-matched ?c) ; as we're moving, the velocity won't be matched..... not sure if i need this though
       (not (safety-mode))
-      (>= {calculate-distance} 0.1) ; stop when 0.1 away -- should set a function for this so it's adjustable
+      (>= (obj-distance ?c) 0.1) ; stop when 0.1 away -- should set a function for this so it's adjustable
     )  
     :effect ( ;trigger process
       catching ?c)  
