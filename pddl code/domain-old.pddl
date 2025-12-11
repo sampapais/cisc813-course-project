@@ -1,4 +1,4 @@
-(define (domain canadarm_safety_validation)
+(define (domain canadarm3-old1)
     (:requirements :typing :fluents :time :durative-actions :numeric-fluents :negative-preconditions 
     :continuous-effects)
 
