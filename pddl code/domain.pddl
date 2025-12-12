@@ -20,6 +20,8 @@
       (failure-collision) ; state indicating that there has been a collision failure
       (in-sun) ;true if arm is in the sun
       (sensor-functional) ;true if sensor works ****NEED TO GO BACK AND ADD AS PRECONDTIION
+      (failure-battery-drained);indicates failure -- true when battery is drained
+      (battery-low) ;true when battery is below 20% of max capacity
    )
 
    (:functions
@@ -46,6 +48,11 @@
 
       (orbit-clock) ;will let us use a toggle to go between T/F for  in-sun
       (sensor-repair-clock) ;sensor can be repaired after a certain amount of time
+
+      (battery-level) ;how much battery the arm has currently (affected by charging and draining)
+      (battery-drain-rate) ;rate at which the battery drains when in shade
+      (battery-charge-rate) ;rate at which the battery charges when in sun
+      (full-battery-capacity) ;how much charge the battery can hold (max capacity)
    )
 
    ; events
@@ -265,28 +272,56 @@
    ;can define a function for how quickly the battery charges + drains -- if drains faster than charges, might be low power error... need to wait until it's back in the sun to resume operations
    ;***************** PUT PRECONDITION IN PREVIOUS ACTIONS/PROCESSES/EVENT THAT THEY CAN ONLY BE EXECUTED IF NOT LOW BATTERY
 
-   (:process orbit-countdown ;should always be going (paired with event that resets this every k seconds -- see next)
+   (:process orbit_countdown ;should always be going (paired with event that resets this every k seconds -- see next)
     :precondition (> (orbit-clock) 0)
     :effect (decrease (orbit-clock)(* #t 1))
    )
 
-   (:event toggle-sun
+   (:event toggle_sun
     :precondition (<= (orbit-clock) 0) ;toggle betwene settings when the clock hits 0
     :effect (and
       (when (in-sun) (not (in-sun))) ;go into shade
       (when (not (in-sun)) (in-sun))) ;go into sunlight
    )
 
-   (:process battery-draining
-    :parameters ()
-    :precondition ()
-    :effect ()
+   (:event battery_low ;battery reaches some critical threshold that makes it enter a power-conserving mode where only collision avoidance still functions
+    :precondition (and 
+      (not (battery-low))
+      (<= (battery-level)(/ (full-battery-capacity)(5)))) ;less than 20% of full charge
+    :effect (battery-low)
    )
 
-   (:process battery-charging
-    :parameters ()
-    :precondition ()
-    :effect ()
+   (:event battery_sufficient ;battery is no longer low and can perform all tasks
+    :precondition (and
+      (battery-low)
+      (>= (battery-level)(/ (full-battery-capacity)(5)))) ;more than 20% of full charge
+    :effect (not (battery-low))
+   )
+
+   (:event battery_drained ;battery has run out -- failure state
+    :precondition (and 
+      (not (failure-battery-drained))
+      (<= (battery-level) 0))
+    :effect (failure-battery-drained)
+   )
+
+   (:process battery_draining_normal
+    :precondition (and 
+      (not (in-sun))
+      (not (battery-low))) ;should drain if not in the sun
+    :effect (decrease (battery-level) (* #t (battery-drain-rate)))
+   )
+
+   (:process battery_draining_critical ;battery drain rate when battery is low (lots of functions disabled) -- set to 50% of normal drain rate?
+    :precondition (and 
+      (battery-low)
+      (not (in-sun)))
+    :effect (decrease (battery-level) (* #t (/ (battery-drain-rate) (2)))) ;drain battery by 50% of normal drain rate
+    ) 
+
+   (:process battery_charging ;battery charges when station is in the sun
+    :precondition (in-sun)
+    :effect (increase (battery-level) (* #t (battery-charge-rate)))
    )
 
 
@@ -304,13 +339,10 @@
     :effect (sensor-functional)
    )
 
-   (:process sensor-repair-countdown
+   (:process sensor_repair_countdown
     :precondition (and
       (> (sensor-repair-clock) 0)
       (not (sensor-functional)))
     :effect (decrease (sensor-repair-clock) (* #t 1)) ;countdown by 1 
    )
 )
-
-
-
