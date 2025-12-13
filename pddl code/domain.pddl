@@ -1,6 +1,6 @@
 (define (domain canadarm3-original)
    (:requirements :typing :fluents :time :durative-actions :numeric-fluents :negative-preconditions 
-   :continuous-effects)
+   :continuous-effects ::conditional-effects)
 
    (:types craft port debris - object
    )
@@ -134,7 +134,9 @@
       (tracking ?c)
       (not (velocity-matched ?c))
       (not (safety-mode))
-      (>= {calculate-distance ?c} 10.0))
+      (>= {calculate-distance ?c} 10.0)
+      (sensor-functional)
+      (not (battery-low)))
     :effect (and
       (decrease (x-obj ?c) (* #t (craft-speed ?c)(/ (- (x-obj ?c)(x-arm)){calculate-distance ?c}))) ; move in dir of the craft
       (decrease (y-obj ?c) (* #t (craft-speed ?c)(/ (- (y-obj ?c)(y-arm)){calculate-distance ?c}))))
@@ -148,7 +150,9 @@
       (velocity-matched ?c) ; as we're moving, the velocity won't be matched..... not sure if i need this though
       (not (safety-mode))
       (>= {calculate-distance ?c} 0.1) ; stop when 0.1 away -- should set a function for this so it's adjustable
-      (catching ?c))
+      (catching ?c)
+      (sensor-functional)
+      (not (battery-low)))
     :effect (and
       (decrease (x-arm) (* #t (arm-speed)(/ (- (x-arm)(x-obj ?c)) {calculate-distance ?c}))) ; reach towards the craft
       (decrease (y-arm) (* #t (arm-speed)(/ (- (y-arm)(y-obj ?c)) {calculate-distance ?c}))))
@@ -172,7 +176,10 @@
       (tracking ?c)
       (not (velocity-matched ?c))
       (<= {calculate-distance ?c} 10.0) ; match velocity when craft is close enough
-      (not (safety-mode))) 
+      (not (safety-mode))
+      ;(sensor-functional) ;commenting these out because it seems like more of an issue
+      ;(not (battery-low)) with the station communicating with the incoming craft
+      ) 
     :effect (and
       (decrease (vx-obj ?c) (* #t 0.1))
       (decrease (vy-obj ?c) (* #t 0.1))) ; make the relative velocity approach 0 -- match the craft whose velocity should also be 0...
@@ -200,10 +207,12 @@
 
    (:process move_to_dock
     :parameters (?p - port ?c - craft)
-   :precondition (and
-       (holding ?c)
+    :precondition (and
+      (holding ?c)
       (not (at ?p))
-      (not (safety-mode)))
+      (not (safety-mode))
+      (sensor-functional)
+      (not (battery-low)))
     :effect (and
       (decrease (x-arm) (* #t (arm-speed)(/ (- (x-arm)(x-obj ?p)) {calculate-distance ?p}))) ;update arm coords.
       (decrease (y-arm) (* #t (arm-speed)(/ (- (y-arm)(y-obj ?p)) {calculate-distance ?p}))) 
@@ -216,7 +225,9 @@
     :parameters (?c - craft)
     :precondition (and
       (detected ?c)
-      (not (tracking ?c))) ; if craft is detected, start tracking it -- assuming for now there's only one craft at a time
+      (not (tracking ?c))
+      (sensor-functional)
+      (not (battery-low))) ; if craft is detected, start tracking it -- assuming for now there's only one craft at a time
    :effect (and
       (tracking ?c))
    )
@@ -228,7 +239,8 @@
       (velocity-matched ?c) ; as we're moving, the velocity won't be matched..... not sure if i need this though
       (not (safety-mode))
       (>= {calculate-distance ?c} 0.1) ; stop when 0.1 away -- should set a function for this so it's adjustable
-    )  
+      (sensor-functional)
+      (not (battery-low)))  
     :effect (catching ?c)  ;trigger process to move arm to craft
    )
 
@@ -237,7 +249,9 @@
     :precondition (and
       (at ?obj)
       (grasp-free)
-      (velocity-matched ?obj)) ;don't want to grab anything coming at us fast
+      (velocity-matched ?obj)
+      (sensor-functional)
+      (not (battery-low))) ;don't want to grab anything coming at us fast
     :effect (and
       (not (grasp-free))
       (holding ?obj)
@@ -249,7 +263,9 @@
     :precondition (and
       (at ?p)
       (holding ?c)
-      (port-free ?p))
+      (port-free ?p)
+      (sensor-functional)
+      (not (battery-low)))
     :effect (and
       (not (holding ?c))
       (not (port-free ?p))
@@ -302,7 +318,7 @@
     :precondition (and 
       (not (failure-battery-drained))
       (<= (battery-level) 0))
-    :effect (failure-battery-drained)
+    :effect (failure-battery-drained) ;failure
    )
 
    (:process battery_draining_normal
