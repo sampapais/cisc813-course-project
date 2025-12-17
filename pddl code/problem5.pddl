@@ -1,4 +1,4 @@
-(define (problem successful-dock-test) (:domain canadarm3-real)
+(define (problem craftcollision4) (:domain canadarm3-real)
 (:objects 
     craft1 - craft
     port1 - port
@@ -6,7 +6,7 @@
 
 (:init
     ;initialize function values
-    (= (collision-distance) 3) ; min distance the craft can be before a collision is a detected
+    (= (collision-distance) 7) ; min distance the craft can be before a collision is a detected
     (= (sensor-range) 20) ; how far the sensor can see
     (= (arm-speed) 1) ; how fast the arm should be moving
     ;(= (craft-speed craft1) 1)
@@ -30,8 +30,8 @@
     (= (y-obj craft1) 0)
 
     ;velocity of craft1
-    (= (vx-obj craft1) 1)
-    (= (vy-obj craft1) 1)
+    (= (vx-obj craft1) 5)
+    (= (vy-obj craft1) 5)
 
 
 
@@ -39,13 +39,13 @@
     (= (orbit-clock-counter) 5) ;same as orbit clock max time (hack)
 
     (= (sensor-repair-clock) 20) ;sensor can be repaired after a certain amount of time
-    (= (sensor-repair-clock) 20) ;same as sensor repair clock max time (hack)
+    (= (sensor-repair-clock-counter) 20) ;same as sensor repair clock max time (hack)
 
     (= (battery-level) 1000) ;how much battery the arm has currently (affected by charging and draining)
     (= (battery-drain-rate) 1) ;rate at which the battery drains when in shade
     (= (battery-charge-rate) 2) ;rate at which the battery charges when in sun
     (= (full-battery-capacity) 1000) ;how much charge the battery can hold (max capacity)
-    
+
     (= (num-collisions) 0)
 
     (port-free port1)
@@ -55,7 +55,7 @@
     (moving craft1)
 )
 
-(:goal (successful-dock craft1)
+(:goal (failure-collision craft1)
 )
 )
 

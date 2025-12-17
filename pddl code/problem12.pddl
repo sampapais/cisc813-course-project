@@ -1,5 +1,7 @@
-(define (problem successful-dock-test) (:domain canadarm3-real)
+(define (problem batterydrainandcollision) (:domain canadarm3-real)
 (:objects 
+    debris1 - debris
+    ;debris2 - debris
     craft1 - craft
     port1 - port
 )
@@ -17,7 +19,6 @@
     (= (y-obj port1) 30)
 
 
-
     ;arm coords
     (= (x-arm) 30)
     (= (y-arm) 30)
@@ -26,13 +27,17 @@
     (= (vx-arm) 0) ; should be 0 -- just assume it's stationary -- everything should be measured relative to the arm... obj velocity more needed to test for collisions
     (= (vy-arm) 0)
     
-    (= (x-obj craft1) 0)
-    (= (y-obj craft1) 0)
+    (= (x-obj debris1) 20)
+    (= (y-obj debris1) 20)
 
-    ;velocity of craft1
-    (= (vx-obj craft1) 1)
-    (= (vy-obj craft1) 1)
+    (= (vx-obj debris1) 1)
+    (= (vy-obj debris1) 1)
 
+    (= (x-obj craft1) 25)
+    (= (y-obj craft1) 25)
+
+    (= (vx-obj craft1) 5)
+    (= (vy-obj craft1) 5)
 
 
     (= (orbit-clock) 5) ;will let us use a toggle to go between T/F for  in-sun
@@ -52,11 +57,13 @@
     (grasp-free)
     (in-sun)
     (sensor-functional)
+    (moving debris1)
     (moving craft1)
 )
 
-(:goal (successful-dock craft1)
+(:goal (and 
+    (= (num-collisions) 2)
+    (not (sensor-functional)))
 )
 )
-
 

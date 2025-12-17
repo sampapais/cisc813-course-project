@@ -1,4 +1,4 @@
-(define (problem successful-dock-test) (:domain canadarm3-real)
+(define (problem craftcollision2) (:domain canadarm3-real)
 (:objects 
     craft1 - craft
     port1 - port
@@ -10,7 +10,7 @@
     (= (sensor-range) 20) ; how far the sensor can see
     (= (arm-speed) 1) ; how fast the arm should be moving
     ;(= (craft-speed craft1) 1)
-    (= (craft-deceleration craft1) -0.25)
+    (= (craft-deceleration craft1) -0.01)
 
     ;port coords
     (= (x-obj port1) 40)
@@ -30,8 +30,8 @@
     (= (y-obj craft1) 0)
 
     ;velocity of craft1
-    (= (vx-obj craft1) 1)
-    (= (vy-obj craft1) 1)
+    (= (vx-obj craft1) 5)
+    (= (vy-obj craft1) 5)
 
 
 
@@ -45,7 +45,7 @@
     (= (battery-drain-rate) 1) ;rate at which the battery drains when in shade
     (= (battery-charge-rate) 2) ;rate at which the battery charges when in sun
     (= (full-battery-capacity) 1000) ;how much charge the battery can hold (max capacity)
-    
+
     (= (num-collisions) 0)
 
     (port-free port1)
@@ -55,7 +55,7 @@
     (moving craft1)
 )
 
-(:goal (successful-dock craft1)
+(:goal (failure-collision craft1)
 )
 )
 

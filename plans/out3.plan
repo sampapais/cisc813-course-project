@@ -1,0 +1,5 @@
+4.0: (object_detected craft1)
+5.0: (toggle_sun_off)
+6.0: (collision-warning craft1)
+6.0: (collision craft1)
+6.0: (sensor_broken craft1)
