@@ -1,40 +1,36 @@
 (define (domain canadarm3-real)
    (:requirements :typing :negative-preconditions :conditional-effects :adl :fluents)
    
-   ;(:types craft port debris - object)
-
    (:types trackable location - object
-           craft debris - trackable
-           port - location)
+           craft debris - trackable ;two types of objects can be tracked
+           port - location) ;port is the only location
 
    (:predicates
       (at ?obj - object) ; to indicate the arm is next to an object/location      
-      (velocity-matched ?obj - object) ; to indicate when the arm has matched its velocity to another obj
-      (holding ?obj - object) ; to indicate what obj the arm is holding
+      (velocity-matched ?obj - object) ; to indicate when the arm has matched its velocity to another object
+      (holding ?obj - object) ; to indicate what object the arm is holding
       (grasp-free) ; T/F if the arm is currently holding anything
       (detected ?obj - object) ; indicates if an object has been detected by the sensor
-      (collision-imminent ?obj - object) ; collision detected with obj
-      (port-free ?port - port) ; indicates if a given port is free -- maybe change to more general location free predicate?
-      (tracking ?c - craft) ; indicates which craft we are currently tracking
-      (safety-mode) ; safety mode indicates we should be trying to recover from a failure 
-      (catching ?c - craft)
+      (collision-imminent ?obj - object) ; imminent collision detected with object
+      (port-free ?port - port) ; indicates if a given port is free
+      (tracking ?c - craft) ; indicates which crafts we are currently tracking
+      (safety-mode) ; being in safety mode indicates we should be trying to recover from a collision failure 
+      (catching ?c - craft) ;indicates that the arm is currently reaching out to catch a craft
       (successful-dock ?c - craft) ; state indicating a successful dock has occurred
       (failure-collision ?obj - object) ; state indicating that there has been a collision failure
       (in-sun) ;true if arm is in the sun
-      (sensor-functional) ;true if sensor works ****NEED TO GO BACK AND ADD AS PRECONDTIION
+      (sensor-functional) ;true if sensor is currently functional
       (failure-battery-drained);indicates failure -- true when battery is drained
       (battery-low) ;true when battery is below 20% of max capacity
-      (approached ?c - craft)
-      (moving ?obj - object)
-      (moving-to-port ?p - port)
+      (approached ?c - craft) ;indicates when a craft has approached close enough to the arm to be caught
+      (moving ?obj - object) ;indicates when an object is in motion
+      (moving-to-port ?p - port) ;indicates when the arm is moving to a port to dock a craft
    )
 
    (:functions
-      ;(relative-velocity ?c - craft); relative velocity to the craft, in meters/sec -- GET RID OF THIS -- NO POINT SETTING I THINK
       (collision-distance) ; min distance the craft can be before a collision is a detected
       (sensor-range) ; how far the sensor can see
-      (arm-speed) ; how fast the arm should be moving
-      ;(craft-speed ?c - craft)
+      (arm-speed) ; how fast the arm is moving
       (craft-deceleration ?c - craft) ;how fast the craft is able to slow down/match velocity with arm (0 velocity)
 
       ;coords of arm
@@ -42,7 +38,7 @@
       (y-arm)
 
       ;velocity of the arm
-      (vx-arm) ; should be 0 -- just assume it's stationary -- everything should be measured relative to the arm... obj velocity more needed to test for collisions
+      (vx-arm) ; should be 0 -- just assume it's stationary -- everything should be measured relative to the arm
       (vy-arm)
       
       ;coords of objects
@@ -54,20 +50,21 @@
       (vy-obj ?obj - object)
 
       (orbit-clock) ;will let us use a toggle to go between T/F for  in-sun
-      (orbit-clock-counter)
+      (orbit-clock-counter) ;the actual countdown -- should be set to the same value as orbit-clock in most cases
       (sensor-repair-clock) ;sensor can be repaired after a certain amount of time
-      (sensor-repair-clock-counter)
+      (sensor-repair-clock-counter) ;the actual countdown -- should be set to the same value as sensor-repair-clock in most cases
 
       (battery-level) ;how much battery the arm has currently (affected by charging and draining)
       (battery-drain-rate) ;rate at which the battery drains when in shade
       (battery-charge-rate) ;rate at which the battery charges when in sun
       (full-battery-capacity) ;how much charge the battery can hold (max capacity)
 
-      (num-collisions)
+      (num-collisions) ;how many collisions have occurred so far
    )
 
-   ;events
-   (:event collision-warning ; detects an imminent collision if velocities are pointed at each other + the objs are too close
+    ; COLLISION SYSTEM AND DOCKING SYSTEM
+
+   (:event collision-warning ; detects an imminent collision if the velocity of the arm and the object are pointed at each other + the object is too close to the arm
     :parameters (?obj - object) 
     :precondition (and
       (not (catching ?obj))
@@ -83,15 +80,15 @@
       (safety-mode)) ; should trigger collision safety protocol to take place/prevent unsafe actions
    )
 
-    ;need another event for collisions after safety mode has already been entered
+    ;need another event for collisions after safety mode has already been entered -- logs new collisions -- otherwise identical to above
    (:event additional-collision-warning
     :parameters (?obj - object) 
     :precondition (and
       (not (catching ?obj))
       (not (moving-to-port ?obj))
       (safety-mode)
-      (detected ?obj) ;collision warning system should only work if detection system is working
-      (moving ?obj) ;object should be moving
+      (detected ?obj) 
+      (moving ?obj)
       (<= (+ (* (- (vx-arm) (vx-obj ?obj)) (- (x-arm) (x-obj ?obj)))(* (- (vy-arm) (vy-obj ?obj)) (- (y-arm) (y-obj ?obj)))) 0) ; check if object is coming closer rather than moving away
       (<= (^ (+ (^ (- (x-obj ?obj)(x-arm)) 2)(^ (- (y-obj ?obj) (y-arm)) 2)) 0.5)(collision-distance)) ;check if they're within a certain distance of each other deemed unsafe
       (not (collision-imminent ?obj))
@@ -100,19 +97,19 @@
       (collision-imminent ?obj))
    )
 
-   (:event collision ;triggers failure -- if the dist between an obj and the arm is <= 0.01
+   (:event collision ;triggers failure if the distance between an obj and the arm is <= 0.01
     :parameters (?obj - object)
     :precondition (and
       (<= (^ (+ (^ (- (x-obj ?obj)(x-arm)) 2)(^ (- (y-obj ?obj)(y-arm)) 2)) 0.5) 0.01)
       (collision-imminent ?obj) ;see if an object has hit the arm
       (not (failure-collision ?obj)))
     :effect (and 
-      (failure-collision ?obj)
+      (failure-collision ?obj) ;collision failure has occurred
       (increase (num-collisions) 1)
-      (not (collision-imminent ?obj))) ;collision failure has occurred
+      (not (collision-imminent ?obj))) 
    )
 
-   (:event exit_safety_mode 
+   (:event exit_safety_mode ;exit safety mode if obj is either stationary or if it is far enough away where collision is no longer a concern
     :parameters (?obj - object)
     :precondition (and
       (safety-mode)
@@ -120,22 +117,17 @@
       (or 
         (> (^ (+ (^ (- (x-obj ?obj)(x-arm)) 2)(^ (- (y-obj ?obj) (y-arm)) 2)) 0.5) (collision-distance))
         (and 
-          ;(<= (vx-obj ?obj) 0) 
-          ;(<= (vy-obj ?obj) 0)
-          (<= (* (vx-obj ?obj) (vx-obj ?obj)) 0.0025)
+          (<= (* (vx-obj ?obj) (vx-obj ?obj)) 0.0025) ;see if it's stationary
           (<= (* (vy-obj ?obj) (vy-obj ?obj)) 0.0025)
         )
       )
-    ) ;ok if obj is either still or if it is far enough away where collision is no longer a concern
-      ;(and (<= (vx-obj ?obj) 0) (<= (vy-obj ?obj) 0)))
-      ;(> (^ (+ (^ (- (x-obj ?obj)(x-arm)) 2)(^ (- (y-obj ?obj) (y-arm)) 2)) 0.5) (collision-distance)))
-      ;(<= (vx-obj ?obj) 0))
+    ) 
     :effect (and
       (not (collision-imminent ?obj))
       (not (safety-mode)))
    )
 
-   (:event object_detected
+   (:event object_detected ;detect an object if it's within range of the sensor
     :parameters (?obj - trackable)
     :precondition (and ; within range of sensor, not detected previously
       (not (detected ?obj))
@@ -170,8 +162,8 @@
     :precondition (and 
       (tracking ?c)
       (and
-        (>= (- (vx-arm) (vx-obj ?c)) -0.005)
-        (<= (- (vx-arm) (vx-obj ?c))  0.005)
+        (>= (- (vx-arm) (vx-obj ?c)) -0.005) ;check to see if velocity has dropped to 0 (the expected velocity of the arm -- it's relative)
+        (<= (- (vx-arm) (vx-obj ?c))  0.005) ;note to self: in the future, this can likely be changed to just not(moving ?c) but i'm not messing with this now... this is a delicate ecosystem
         (>= (- (vy-arm) (vy-obj ?c)) -0.005)
         (<= (- (vy-arm) (vy-obj ?c))  0.005)
       )
@@ -181,7 +173,7 @@
       (velocity-matched ?c))
    )
 
-   (:event spacecraft_approached
+   (:event spacecraft_approached ;signifies when a craft has come close enough to the arm to match velocity + be caught
     :parameters (?c - craft)
     :precondition (and
       (tracking ?c)
@@ -191,7 +183,7 @@
     :effect (approached ?c)
    )
 
-   (:event reached_craft
+   (:event reached_craft ;signifies when the arm has reached the craft
     :parameters (?c - craft)
     :precondition (and
       (<= (^ (+ (^ (- (x-obj ?c)(x-arm)) 2)(^ (- (y-obj ?c) (y-arm)) 2)) 0.5) 5)
@@ -202,7 +194,7 @@
       (not (catching ?c))) ;reached craft -- ready to grasp
    )
 
-   (:event arrived_at_port
+   (:event arrived_at_port ;signifies when the arm has arrived at the free port to dock the craft
     :parameters (?p - port ?c - craft)
     :precondition (and
       (moving-to-port ?p)
@@ -213,8 +205,6 @@
       (not (moving-to-port ?p))
       (at ?p)) ; at the port 
    )
-
-   ; processes
 
    ;craft approaches the station
    (:process approach_station
@@ -228,8 +218,6 @@
       ;(not (battery-low))
       )
     :effect (and
-      ;(decrease (x-obj ?c) (* #t (* (craft-speed ?c)(/ (- (x-obj ?c)(x-arm))(^ (+ (^ (- (x-obj ?c)(x-arm)) 2)(^ (- (y-obj ?c)(y-arm)) 2)) 0.5))))) ; move in dir of the craft
-      ;(decrease (y-obj ?c) (* #t (* (craft-speed ?c)(/ (- (y-obj ?c)(y-arm))(^ (+ (^ (- (x-obj ?c)(x-arm)) 2)(^ (- (y-obj ?c)(y-arm)) 2)) 0.5))))))
       (increase (x-obj ?c) (* #t (vx-obj ?c)))
       (increase (y-obj ?c) (* #t (vy-obj ?c))))
    )
@@ -256,7 +244,6 @@
     :precondition (and
       (moving ?obj)
       (>= (* (vx-obj ?obj) (vx-obj ?obj)) 0.0025)) ; if close to 0, consider the velocity to be 0
-      ;(not (detected ?obj)))
     :effect (increase (x-obj ?obj) (* #t (vx-obj ?obj)))
    )
 
@@ -265,14 +252,13 @@
     :precondition (and
       (moving ?obj)
       (>= (* (vy-obj ?obj) (vy-obj ?obj)) 0.0025)) ; if close to 0, consider the velocity to be 0
-      ;(not (detected ?obj)))
     :effect (increase (y-obj ?obj) (* #t (vy-obj ?obj)))
    )
 
    (:event stopped_moving ;make object be considered still if velocity is sufficiently low
     :parameters (?obj - object)
     :precondition (and
-      (<= (* (vx-obj ?obj) (vx-obj ?obj)) 0.0025)
+      (<= (* (vx-obj ?obj) (vx-obj ?obj)) 0.0025) ;note to self: change this to < in the future...... idk why this hasn't broken anything yet
       (<= (* (vy-obj ?obj) (vy-obj ?obj)) 0.0025)
       (moving ?obj))
     :effect (and 
@@ -288,17 +274,15 @@
       (not (velocity-matched ?c))
       (<= (^ (+ (^ (- (x-obj ?c)(x-arm)) 2)(^ (- (y-obj ?c) (y-arm)) 2)) 0.5) 10.0) ; match velocity when craft is close enough
       (not (safety-mode))
-      ;(sensor-functional) ;commenting these out because it seems like more of an issue
-      ;(not (battery-low)) ;with the station communicating with the incoming craft
+      ;(sensor-functional) ;commenting these out because it seems like more of an issue with the station communicating with the incoming craft
+      ;(not (battery-low)) 
       ) 
     :effect (and
-      ;(decrease (vx-obj ?c) (* #t 0.1))
-      ;(decrease (vy-obj ?c) (* #t 0.1))) ; make the relative velocity approach 0 -- match the craft whose velocity should also be 0...
-      (increase (vx-obj ?c) (* #t (* (vx-obj ?c) (craft-deceleration ?c))))
+      (increase (vx-obj ?c) (* #t (* (vx-obj ?c) (craft-deceleration ?c)))) ; make the relative velocity approach 0 -- match the craft whose velocity should also be 0...
       (increase (vy-obj ?c) (* #t (* (vy-obj ?c) (craft-deceleration ?c)))))
    )
 
-   (:process collision_avoidance_debris ; prevents collisions with debris if one is detected
+   (:process collision_avoidance_debris ; prevents collisions with debris if one is detected by moving it 90 degrees to the velocity of the debris
     :parameters (?d - debris)
     :precondition (and
       (safety-mode)
@@ -310,23 +294,17 @@
       (increase (y-arm) (* #t (* (arm-speed) (/ (* (vx-obj ?d) -1) (^ (+ (^ (vx-obj ?d) 2) (^ (vy-obj ?d) 2)) 0.5)))))) ; move the arm perpendicular to the velocity of the incoming debris (flip sign)
    )
 
-   (:process collision_avoidance_craft ; prevents collisions if one is detected w a CRAFT -- craft comes to a stop immediately
+   (:process collision_avoidance_craft ; prevents collisions if one is detected w a CRAFT -- craft comes to a stop
     :parameters (?c - craft)
     :precondition (and
       (safety-mode)
       (collision-imminent ?c))
     :effect (and
-      ;(decrease (vx-obj ?c) (* #t (* (craft-deceleration ?c)(vx-obj ?c)))) ; make the craft slow at the deceleration rate
-      ;(decrease (vy-obj ?c) (* #t (* (craft-deceleration ?c)(vy-obj ?c)))))
-      ;(decrease (vx-obj ?c) (* #t (craft-deceleration ?c))) ; make the craft slow at the deceleration rate
-      ;(decrease (vy-obj ?c) (* #t (craft-deceleration ?c))))
-      ;(assign (vx-obj ?c) 0)
-      ;(assign (vy-obj ?c) 0))
       (increase (vx-obj ?c) (* #t (* (vx-obj ?c) (* (craft-deceleration ?c) 2))))
       (increase (vy-obj ?c) (* #t (* (vy-obj ?c) (* (craft-deceleration ?c) 2)))))
    ) 
 
-   (:process moving_to_port
+   (:process moving_to_port ;move the arm and the captured craft to the port
     :parameters (?p - port ?c - craft)
     :precondition (and
       (moving-to-port ?p)
@@ -344,26 +322,25 @@
       (decrease (y-obj ?c) (* #t (* (arm-speed)(/ (- (y-obj ?c)(y-obj ?p)) (^ (+ (^ (- (x-obj ?p)(x-arm)) 2)(^ (- (y-obj ?p) (y-arm)) 2)) 0.5)))))) 
    )
 
-   ; discrete actions
-   (:action track_object
-    :parameters (?obj - trackable)
+   (:action track_object ;start tracking an object
+    :parameters (?obj - trackable) ;note to self: in the future, change this to ?c - craft -- i don't think we care about tracking debris, just detecting it
     :precondition (and
       (detected ?obj)
       (not (tracking ?obj))
       (sensor-functional)
       (not (battery-low))
-      (not (failure-battery-drained))) ; if craft is detected, start tracking it -- assuming for now there's only one craft at a time
+      (not (failure-battery-drained))) ; if craft is detected, start tracking it
    :effect (and
       (tracking ?obj))
    )
 
-   (:action catch_craft
+   (:action catch_craft ;reach out to grasp the craft
     :parameters (?c - craft)
     :precondition (and
       (not (at ?c)) ;make sure you're not already there
       (grasp-free)
       (tracking ?c)
-      (velocity-matched ?c) ; as we're moving, the velocity won't be matched..... not sure if i need this though
+      (velocity-matched ?c)
       (not (safety-mode))
       (> (^ (+ (^ (- (x-obj ?c)(x-arm)) 2)(^ (- (y-obj ?c) (y-arm)) 2)) 0.5) 0.1) ; stop when 0.1 away -- should set a function for this so it's adjustable
       (sensor-functional)
@@ -377,17 +354,17 @@
     :precondition (and
       (at ?obj)
       (grasp-free)
-      (velocity-matched ?obj)
+      (velocity-matched ?obj) ;don't want to grab anything coming at us fast
       (sensor-functional)
       (not (battery-low))
-      (not (failure-battery-drained))) ;don't want to grab anything coming at us fast
+      (not (failure-battery-drained))) 
     :effect (and
       (not (grasp-free))
       (holding ?obj)
       (not (at ?obj)))
    )
 
-   (:action go_to_port
+   (:action go_to_port ;starts the process of moving the arm and craft to a port 
     :parameters (?p - port ?c - craft)
     :precondition (and 
       (not (at ?p))
@@ -400,7 +377,7 @@
     :effect (moving-to-port ?p)
     )
 
-   (:action dock_craft
+   (:action dock_craft ;dock the craft at the port
     :parameters (?p - port ?c - craft)
     :precondition (and
       (at ?p)
@@ -418,19 +395,18 @@
    )
 
 
-   ;low power functionality + protocols
+   ;ORBITAL AND ENERGY SYSTEMS
 
    ;only vital systems should remain active, e.g. collision avoidance + detecting objects with sensors
    ;but shouldn't try to catch/dock ships, for ex.
 
    ;idea is the arm gets power from the LG which gets power from the sun w solar panels
    ;so we need to model being in shade versus being in sunlight
-   ;do this with events/some counter that toggle ever k seconds, switching from light to shadow
-   ;process of using battery is always on
+   ;do this with events/some counter that toggles every k seconds, switching from light to shadow
+   ;process of using battery is always on, but changes depending on if we're at low battery or not
    ;charging when in sunlight
    ;draining when in shadow
    ;can define a function for how quickly the battery charges + drains -- if drains faster than charges, might be low power error... need to wait until it's back in the sun to resume operations
-   ;***************** PUT PRECONDITION IN PREVIOUS ACTIONS/PROCESSES/EVENT THAT THEY CAN ONLY BE EXECUTED IF NOT LOW BATTERY
 
    (:process orbit_countdown ;should always be going (paired with events that resets this every k seconds -- see next)
     :parameters ()
@@ -482,7 +458,7 @@
     :effect (failure-battery-drained) ;failure -- battery drained
    )
 
-   (:process battery_draining_normal
+   (:process battery_draining_normal ;normal drain rate of the battery when in shadow
     :parameters ()
     :precondition (and 
       (not (in-sun))
@@ -490,7 +466,7 @@
     :effect (decrease (battery-level) (* #t (battery-drain-rate)))
    )
 
-   (:process battery_draining_critical ;battery drain rate when battery is low (lots of functions disabled) -- set to 50% of normal drain rate?
+   (:process battery_draining_critical ;battery drain rate when battery is low (lots of functions disabled) -- set to 50% of normal drain rate
     :parameters ()
     :precondition (and 
       (battery-low)
@@ -504,12 +480,12 @@
     :effect (increase (battery-level) (* #t (battery-charge-rate)))
    )
 
-   ;sensor breaks + protocols
 
-   ;arm should not do anything -- should retract as close as possible to the base and wait to be repaired
+   ;SENSOR SYSTEM
+
+   ;arm should not do anything if the sensor is broken
    ;becomes functional again after a certain period of time -- set a clock
-   ;sensor breaking is set in the problem file as a timed initial literal (TIL)
-   ;***************** PUT PRECONDITION IN PREVIOUS ACTIONS/PROCESSES/EVENT THAT THEY CAN ONLY BE EXECUTED IF SENSOR IS ACTIVE
+   ;sensor breaking is caused by collisions
 
    (:event sensor_broken
     :parameters (?obj - object)
@@ -537,15 +513,4 @@
       (not (sensor-functional)))
     :effect (decrease (sensor-repair-clock-counter) (* #t 1)) ;countdown by 1 
    )
-
-  ;  (:event sensor_broken_and_collision_failure
-  ;   :parameters ()
-  ;   :precondition (and
-  ;     (= (num-collisions) 2)
-  ;     (not (sensor-functional))
-  ;     (not (failure-sensor-broken-plus-collision))
-  ;   )
-  ;   :effect (and
-  ;     (failure-sensor-broken-plus-collision))
-  ;  )
 )

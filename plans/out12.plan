@@ -4,6 +4,6 @@
 1.0: (collision craft1)
 1.0: (sensor_broken craft1)
 5.0: (toggle_sun_off)
-8.0: (additional-collision-warning debris1)
+6.0: (additional-collision-warning debris1)
 10.0: (collision debris1)
 10.0: (toggle_sun_on)

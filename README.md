@@ -13,14 +13,28 @@ it can, then there may be an issue with the safety protocols outlined for the sy
 This model currently captures:
 - Sensing and tracking objects.
 - Continuous movement of the arm towards objects in space and towards itself.
-- Safety protocols for collision avoidance.
+- Safety protocols for collision avoidance with both crafts and space debris.
+- The orbit of the Lunar Gateway around the Moon and how this affects the arm's battery life.
+- How the sensor breaking can impact the Canadarm3's functionality.
 
-## Files in the repository
+## Folders and files in the repository
 
-- There are two domain files in this repository currently: an old and new version. The old version (domain-old.pddl) does not capture the 2-dimensional grid space that the new version (domain.pddl) currently has. Ignore the old domain -- it is just there for my own easy reference.
-- There is a txt document of notes -- these are also just for my own reference.
-- The draft of the report is included in this repository as well.
+In the main branch:
+- The folder titled "misc" contains the report draft, some notes, and some code for replacing bits of code with other bits of code. This can be ignored.
+- The folder titled "old domains" contains old drafts of the domain. This can also be ignored, but it's fun(ny) to look at.
+- The folder titled "pddl code" contains the domain as well as the 12 problem files used to falsify the model.
+- The folder titled "plans" contains the plans output by the planner when a path to failure could be found.
+- The final report can be found in the home directory, titled "CISC813 Final Project Report"
 
-## Draft NOTE:
+## How to run the problem files:
 
-See the main branch for the right version of the repository. I will continue working in the "domain" branch as this is being marked.
+To obtain the plans, I used ENHSP-2020 in the planutils environment. The plans can therefore be run from within the planutils environment (instructions on how to access this found [here](https://github.com/AI-Planning/planutils)). After entering the "pddl code" folder, you can run the individual plans with the following command (substituting the desired problem file for problem1.pddl): 
+
+enhsp-2020 --domain domain.pddl --problem problem1.pddl -pe
+
+Note that adding the -pe flag to the end displays the events (which I believe is crucial with this model, since many things rely on events and processes---there are only 5 actions in the whole model).
+
+To generate plans, I used the following complete command with a timeout of 600 seconds (10 minutes):
+
+enhsp-2020 --domain domain.pddl --problem problem1.pddl -sp out1.plan -pe -timeout 600
+

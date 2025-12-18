@@ -8,7 +8,7 @@
 
 (:init
     ;initialize function values
-    (= (collision-distance) 3) ; min distance the craft can be before a collision is a detected
+    (= (collision-distance) 7) ; min distance the craft can be before a collision is a detected
     (= (sensor-range) 20) ; how far the sensor can see
     (= (arm-speed) 1) ; how fast the arm should be moving
     ;(= (craft-speed craft1) 1)

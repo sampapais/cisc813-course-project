@@ -32,6 +32,7 @@
     (= (vx-obj debris1) 2)
     (= (vy-obj debris1) 0)
 
+    ;craft coords and velocity
     (= (x-obj craft1) 0)
     (= (y-obj craft1) 0)
 
